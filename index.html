@@ -537,6 +537,25 @@ function migrateOpts(type,stored,merged){
   }
   return merged;
 }
+/* 구버전 기본 파일명(header.png 등) → sample/ 경로 자동 변환. 사용자 지정 경로는 유지 */
+const OLD2SAMPLE = { "header.png":"sample/header.png", "banner01.png":"sample/banner.png", "footer.png":"sample/footer.png", "image.png":"sample/image.png" };
+function sampleSrc(src){
+  if(!src || typeof src!=="string") return src;
+  if(OLD2SAMPLE[src]) return OLD2SAMPLE[src];
+  let m;
+  if((m=src.match(/^item0?(\d+)\.png$/i)))  return `sample/item${((+m[1]-1)%4)+1}.png`;
+  if((m=src.match(/^image0?(\d+)\.png$/i))) return "sample/image.png";
+  if((m=src.match(/^main0?(\d+)\.png$/i)))  return "sample/mv.png";
+  return src;
+}
+function remapSampleImages(){
+  state.blocks.forEach(b=>{
+    const o=b.opts||{};
+    if(Array.isArray(o.imgs)) o.imgs.forEach(it=>{ if(it) it.src=sampleSrc(it.src); });
+    if(typeof o.img==="string") o.img=sampleSrc(o.img);
+    if(Array.isArray(o.items)) o.items.forEach(it=>{ if(it) it.img=sampleSrc(it.img); });
+  });
+}
 
 /* =========================================================================
    출력 문서 조립
@@ -967,6 +986,7 @@ function restore(){
       const merged={...structuredClone(CATALOG[b.type].def()), ...(b.opts||{})};
       return { id:b.id||uid(), type:b.type, opts:migrateOpts(b.type, b.opts||{}, merged) };
     });
+    remapSampleImages();
     return true;
   }catch(_){ return false; }
 }
@@ -1012,6 +1032,7 @@ window.addEventListener("DOMContentLoaded",()=>{
       if(!s||!Array.isArray(s.blocks)) throw 0;
       state.width=s.width||750; state.bg=s.bg||"#f4f4f4";
       state.blocks=s.blocks.filter(b=>b&&CATALOG[b.type]).map(b=>{const merged={...structuredClone(CATALOG[b.type].def()),...(b.opts||{})};return {id:b.id||uid(),type:b.type,opts:migrateOpts(b.type,b.opts||{},merged)};});
+      remapSampleImages();
       openId=null; $("#tblWidth").value=state.width; $("#bgColor").value=/^#/.test(state.bg)?state.bg:"#f4f4f4";
       renderBlocks(); commit(true); toast("設計を読み込みました");
     }catch(_){ toast("JSONの読込に失敗しました"); } };
