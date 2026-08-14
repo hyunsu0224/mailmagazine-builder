@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メルマガ HTMLビルダー — Mail Template Builder</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --line:#e2e5ea; --line2:#eef0f3;
+    --ink:#1f2430; --sub:#6b7280; --accent:#2f6df6; --accent-d:#1f52c9;
+    --danger:#e5484d; --ok:#12a150; --chip:#f0f3f8;
+    --radius:10px; --shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP","Malgun Gothic",sans-serif;
+    background:var(--bg); color:var(--ink); font-size:13px; line-height:1.5;
+  }
+  /* ===== 레이아웃 ===== */
+  .app{display:grid; grid-template-columns:210px 1fr 46%; height:100vh; overflow:hidden}
+  .col{overflow:auto; height:100vh}
+  .palette{background:var(--panel); border-right:1px solid var(--line); padding:14px 12px}
+  .canvas{padding:16px 18px; background:var(--bg)}
+  .preview{background:#2b2f36; border-left:1px solid var(--line); display:flex; flex-direction:column}
+
+  .brand{font-weight:700; font-size:15px; letter-spacing:.2px; margin:0 0 2px}
+  .brand small{display:block; font-weight:400; color:var(--sub); font-size:11px; margin-top:2px}
+  .p-sec{margin-top:16px}
+  .p-sec h4{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--sub); margin:0 0 7px}
+  .add-btn{
+    display:flex; align-items:center; gap:8px; width:100%; text-align:left; cursor:pointer;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:6px;
+    font-size:12.5px; color:var(--ink); transition:.12s;
+  }
+  .add-btn:hover{border-color:var(--accent); background:#f5f8ff; transform:translateX(1px)}
+  .add-btn .ico{font-size:15px; width:20px; text-align:center; flex:none}
+
+  /* ===== 상단 툴바 ===== */
+  .toolbar{
+    position:sticky; top:0; z-index:20; background:rgba(244,245,247,.9); backdrop-filter:blur(6px);
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:2px 0 12px; margin-bottom:8px; border-bottom:1px solid var(--line2)
+  }
+  .btn{cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--ink);
+       padding:7px 12px; border-radius:8px; font-size:12.5px; font-weight:600; transition:.12s}
+  .btn:hover{border-color:#c7ccd6}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  .btn.primary:hover{background:var(--accent-d)}
+  .btn.ghost{background:transparent}
+  .field-inline{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--sub)}
+  .field-inline input[type=number]{width:66px}
+  .field-inline input[type=text]{width:150px}
+  .spacer-fill{flex:1}
+
+  /* ===== 블록 카드 ===== */
+  .empty{color:var(--sub); text-align:center; padding:50px 10px; border:2px dashed var(--line); border-radius:12px; background:var(--panel)}
+  .block{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; box-shadow:var(--shadow); overflow:hidden}
+  .block.sel{border-color:var(--accent); box-shadow:0 0 0 3px rgba(47,109,246,.12)}
+  .b-head{display:flex; align-items:center; gap:8px; padding:9px 11px; background:#fafbfc; border-bottom:1px solid var(--line2); cursor:pointer}
+  .b-head .ico{font-size:14px}
+  .b-title{font-weight:700; font-size:12.5px}
+  .b-tag{font-size:10.5px; color:var(--sub); background:var(--chip); padding:2px 7px; border-radius:20px}
+  .b-actions{display:flex; gap:3px}
+  .icobtn{cursor:pointer; border:1px solid transparent; background:transparent; border-radius:6px; width:26px; height:26px; font-size:13px; color:var(--sub); display:inline-flex; align-items:center; justify-content:center}
+  .icobtn:hover{background:#eef0f3; color:var(--ink)}
+  .icobtn.del:hover{background:#fdecec; color:var(--danger)}
+  .b-body{padding:11px 12px; display:none}
+  .block.open .b-body{display:block}
+  .block.open .b-head{background:#f2f6ff}
+
+  /* ===== 폼 필드 ===== */
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+  .fld{margin-bottom:9px}
+  .fld:last-child{margin-bottom:0}
+  .fld label{display:block; font-size:11px; font-weight:600; color:var(--sub); margin-bottom:3px}
+  .fld input[type=text],.fld input[type=url],.fld input[type=number],.fld textarea,.fld select{
+    width:100%; border:1px solid var(--line); border-radius:7px; padding:7px 9px; font-size:12.5px; font-family:inherit; color:var(--ink); background:#fff
+  }
+  .fld textarea{resize:vertical; min-height:52px; line-height:1.5}
+  .fld input:focus,.fld textarea:focus,.fld select:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(47,109,246,.1)}
+  .fld .color-row{display:flex; gap:7px; align-items:center}
+  .fld input[type=color]{width:40px; height:34px; padding:2px; border:1px solid var(--line); border-radius:7px; background:#fff; cursor:pointer}
+  .hint{font-size:10.5px; color:var(--sub); margin-top:3px}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .seg button{border:0; background:#fff; padding:6px 12px; cursor:pointer; font-size:12px; color:var(--sub); font-weight:600}
+  .seg button.on{background:var(--accent); color:#fff}
+
+  /* ===== 상품 편집 ===== */
+  .prod-item{border:1px dashed var(--line); border-radius:8px; padding:9px; margin-bottom:9px; background:#fcfcfd; position:relative}
+  .prod-item .pi-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:7px}
+  .pi-head strong{font-size:11.5px; color:var(--sub)}
+  .add-prod{width:100%; border:1px dashed var(--accent); color:var(--accent); background:#f5f8ff; border-radius:8px; padding:9px; cursor:pointer; font-weight:700; font-size:12.5px}
+  .add-prod:hover{background:#eaf1ff}
+  .rt-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px}
+  .rt-tools{display:inline-flex; gap:1px; align-items:center; border:1px solid var(--line); border-radius:7px; padding:2px; background:#fff}
+  .rt-b{width:27px; height:27px; border:0; background:transparent; border-radius:5px; cursor:pointer; font-size:12.5px; color:var(--ink); display:inline-flex; align-items:center; justify-content:center; line-height:1}
+  .rt-b:hover{background:#eef0f3}
+  .rt-b.on{background:var(--accent); color:#fff}
+  .rt-color{width:27px; height:27px; border:1px solid var(--line); border-radius:5px; padding:1px; background:#fff; cursor:pointer; flex:none}
+  .rt-mode button{padding:5px 11px}
+  .warn-box{border-radius:7px; padding:8px 10px; font-size:11.5px; margin:2px 0 9px; line-height:1.55; font-weight:600}
+  .warn-box.ok{background:#e7f7ee; color:#137a43; border:1px solid #b6e4c9}
+  .warn-box.warn{background:#fff6e5; color:#9a6700; border:1px solid #ffdf9e}
+  .warn-box.over{background:#fdeaea; color:#b42318; border:1px solid #f5b5b5}
+
+  /* ===== 미리보기 ===== */
+  .pv-bar{display:flex; align-items:center; gap:8px; padding:9px 12px; color:#e6e8ec; font-size:12px; background:#22262c; border-bottom:1px solid #34383f}
+  .pv-bar .dot{width:9px; height:9px; border-radius:50%}
+  .pv-wrap{flex:1; overflow:auto; padding:16px; display:flex; justify-content:center}
+  .pv-frame{width:100%; max-width:770px; background:#fff; border-radius:6px; box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  #pv{width:100%; border:0; display:block; border-radius:6px; background:#fff}
+  .seg.dark button{background:#2b2f36; color:#aeb4bd}
+  .seg.dark{border-color:#3a3f47}
+  .seg.dark button.on{background:var(--accent); color:#fff}
+
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2430; color:#fff; padding:10px 18px; border-radius:24px; font-size:12.5px; opacity:0; pointer-events:none; transition:.25s; z-index:100}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ 좌: 팔레트 ============ -->
+  <aside class="col palette">
+    <h1 class="brand">📧 メルマガ Builder<small>table基準 メールHTML 組立</small></h1>
+    <div id="palette"></div>
+  </aside>
+
+  <!-- ============ 중: 캔버스 ============ -->
+  <main class="col canvas">
+    <div class="toolbar">
+      <div class="field-inline">幅
+        <input type="number" id="tblWidth" value="750" min="320" max="900" step="10"> px
+      </div>
+      <div class="field-inline">背景
+        <input type="color" id="bgColor" value="#f4f4f4" style="width:30px;height:28px;padding:1px;border:1px solid var(--line);border-radius:6px;cursor:pointer">
+      </div>
+      <div class="spacer-fill"></div>
+      <button class="btn ghost" id="btnJsonSave" title="設計をJSONで保存">💾 JSON</button>
+      <button class="btn ghost" id="btnJsonLoad" title="JSONを読込">📂 読込</button>
+      <button class="btn ghost" id="btnClear" title="全消去">🗑</button>
+      <button class="btn" id="btnCopy">📋 コピー</button>
+      <button class="btn primary" id="btnDownload">⬇ HTMLダウンロード</button>
+      <input type="file" id="fileJson" accept=".json,application/json">
+    </div>
+    <div id="blocks"></div>
+  </main>
+
+  <!-- ============ 우: 미리보기 ============ -->
+  <section class="col preview">
+    <div class="pv-bar">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+      <span style="margin-left:6px">プレビュー</span>
+      <div class="spacer-fill"></div>
+      <div class="seg dark" id="devSeg">
+        <button data-dev="pc" class="on">PC</button>
+        <button data-dev="sp">SP</button>
+      </div>
+    </div>
+    <div class="pv-wrap"><div class="pv-frame" id="pvFrame"><iframe id="pv"></iframe></div></div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   メルマガ HTML Builder  (単一ファイル / サーバー不要 / file:// で動作)
+   状態(state) → table基準メールHTML を組み立て、実時間プレビュー・出力する。
+   ========================================================================= */
+"use strict";
+
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const uid = ()=> "b"+Math.random().toString(36).slice(2,9);
+const esc = (s)=> String(s==null?"":s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+/* 굵기 값 정규화: bold/true → "bold", 그 외 → "normal" */
+const wt = (v)=> (v===true||v==="bold"||v==="true") ? "bold" : "normal";
+
+/* ---------- 전역 상태 ---------- */
+const state = {
+  width: 750,
+  bg: "#f4f4f4",
+  blocks: []           // [{id, type, opts:{...}}]
+};
+let device = "pc";
+const STORE = "mailbuilder-state-v1";
+
+/* =========================================================================
+   컴포넌트 카탈로그
+   각 타입: label, ico, group, def()=기본opts, fields=[자동폼정의], render(o,ctx)
+   render()는 메인 750 table 안에 들어갈 <tr>...</tr> 문자열을 반환.
+   ========================================================================= */
+const F = {                                   // 필드 헬퍼(폼정의 축약)
+  text : (key,label,ph="")=>({key,label,type:"text",ph}),
+  url  : (key,label)      =>({key,label,type:"url",ph:"https://…"}),
+  area : (key,label,ph="")=>({key,label,type:"area",ph}),
+  num  : (key,label,min=0,max=200)=>({key,label,type:"num",min,max}),
+  color: (key,label)      =>({key,label,type:"color"}),
+  align: (key="align")    =>({key,label:"配置",type:"align"}),
+  sel  : (key,label,opts) =>({key,label,type:"sel",opts}),
+  rich : (key,label,ph="")=>({key,label,type:"rich",ph}),   // 부분서식 툴바 달린 textarea
+};
+
+/* 색·여백 등 공용 스타일 조각 */
+const cell = (inner,pad="0")=>`<td style="padding:${pad};">${inner}</td>`;
+
+const CATALOG = {
+  /* ---- 공통 탑 (다중 이미지 가능) ---- */
+  header:{
+    label:"共通トップ", ico:"🔝", group:"共通", multiImg:true,
+    def:()=>({imgs:[{src:"header.png",alt:"ヘッダー",href:"",w:750}], gap:20, bg:"#ffffff", pad:"0"}),
+    render:(o,c)=>{ const content=c.width-padPairX(o.pad||"0"); return row(imageRowRender(o,content),{bg:o.bg,pad:o.pad||"0"}); }
+  },
+
+  /* ---- 갱신 날짜 ---- */
+  date:{
+    label:"更新日付", ico:"📅", group:"共通",
+    def:()=>({text:"2026.00.00 更新", align:"right", color:"#888888", size:12, weight:"normal", bg:"#ffffff", pad:"8px 16px"}),
+    fields:[ F.text("text","テキスト"), F.align(), F.num("size","文字サイズ",8,40),
+             F.sel("weight","太さ",[["normal","標準"],["bold","太字"]]),
+             F.color("color","文字色"), F.color("bg","背景色") ],
+    render:(o)=>{
+      const p = `<p style="margin:0;font-size:${o.size}px;font-weight:${wt(o.weight)};color:${o.color};text-align:${o.align};line-height:1.4;">${esc(o.text)}</p>`;
+      return row(p,{bg:o.bg,pad:o.pad});
+    }
+  },
+
+  /* ---- 메인 비주얼 (다중 이미지 가능) ---- */
+  mv:{
+    label:"メインビジュアル(MV)", ico:"🖼", group:"画像", multiImg:true,
+    def:()=>({imgs:[{src:"main01.png",alt:"メインビジュアル",href:"",w:750}], gap:20, bg:"#ffffff", pad:"0"}),
+    render:(o,c)=>{ const content=c.width-padPairX(o.pad||"0"); return row(imageRowRender(o,content),{bg:o.bg,pad:o.pad||"0"}); }
+  },
+
+  /* ---- 상품 요소 (2/3 컬럼, 추가 자동개행) ---- */
+  products:{
+    label:"商品ブロック", ico:"🛍", group:"商品",
+    def:()=>({
+      cols:2, bg:"#ffffff", gap:20, pad:"14px 12px",
+      nameColor:"#222222", priceColor:"#c00000", commentColor:"#555555",
+      items:[ newProduct(1), newProduct(2) ]
+    }),
+    fields:null,                              // 커스텀 UI(아래 renderProductForm)
+    render:(o,c)=>{
+      const cols = o.cols;
+      const gap  = num(o.gap,12);
+      const inner = c.width - padX(o.pad)*0;   // 셀 안쪽 계산은 아래에서
+      const usable = c.width - padPairX(o.pad);
+      const cellW  = Math.floor((usable - gap*(cols-1)) / cols);
+      const rows = chunk(o.items, cols).map(group=>{
+        const tds = [];
+        for(let i=0;i<cols;i++){
+          const it = group[i];
+          if(it){
+            tds.push(productCell(it,cellW,o));
+          }else{
+            tds.push(`<td width="${cellW}" style="width:${cellW}px;">&nbsp;</td>`);
+          }
+          if(i<cols-1) tds.push(`<td width="${gap}" style="width:${gap}px;font-size:1px;line-height:1px;">&nbsp;</td>`);
+        }
+        return `<tr>${tds.join("")}</tr>`;
+      }).join(`<tr><td colspan="${cols*2-1}" style="height:${gap}px;font-size:1px;line-height:1px;">&nbsp;</td></tr>`);
+      const tbl = `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="width:100%;">${rows}</table>`;
+      return row(tbl,{bg:o.bg,pad:o.pad});
+    }
+  },
+
+  /* ---- 배너 이미지 (다중 이미지 가능) ---- */
+  banner:{
+    label:"バナー画像", ico:"🏷", group:"画像", multiImg:true,
+    def:()=>({imgs:[{src:"banner01.png",alt:"バナー",href:"",w:726}], gap:20, bg:"#ffffff", pad:"10px 12px"}),
+    render:(o,c)=>{ const content=c.width-padPairX(o.pad||"10px 12px"); return row(imageRowRender(o,content),{bg:o.bg,pad:o.pad}); }
+  },
+
+  /* ---- 배너 타이틀 + 설명문 ---- */
+  bannertext:{
+    label:"バナー見出し＋説明文", ico:"📝", group:"テキスト",
+    def:()=>({title:"見出しテキストを入力", titleMode:"text", desc:"ここに説明文が入ります。改行はそのまま反映されます。", descMode:"text",
+              align:"left", titleColor:"#222222", titleSize:20, titleWeight:"bold", descColor:"#555555", descSize:14, descWeight:"normal",
+              bg:"#ffffff", pad:"16px 18px", accent:"#2f6df6", accentBar:true}),
+    fields:[ F.rich("title","見出し"), F.rich("desc","説明文"), F.align(),
+             F.num("titleSize","見出しサイズ",10,48), F.color("titleColor","見出し色"),
+             F.sel("titleWeight","見出し太さ",[["bold","太字"],["normal","標準"]]),
+             F.num("descSize","説明文サイズ",8,30), F.color("descColor","説明文色"),
+             F.sel("descWeight","説明文太さ",[["normal","標準"],["bold","太字"]]),
+             F.sel("accentBar","見出し左ライン",[["true","あり"],["false","なし"]]), F.color("accent","ライン色"),
+             F.color("bg","背景色") ],
+    render:(o)=>{
+      const bar = (o.accentBar===true||o.accentBar==="true")
+        ? `border-left:4px solid ${o.accent};padding-left:10px;` : "";
+      const t = `<p style="margin:0 0 8px;font-size:${o.titleSize}px;font-weight:${wt(o.titleWeight)};color:${o.titleColor};text-align:${o.align};line-height:1.4;${bar}">${renderRich(o,"title")}</p>`;
+      const d = `<p style="margin:0;font-size:${o.descSize}px;font-weight:${wt(o.descWeight)};color:${o.descColor};text-align:${o.align};line-height:1.7;">${renderRich(o,"desc")}</p>`;
+      return row(t+d,{bg:o.bg,pad:o.pad});
+    }
+  },
+
+  /* ---- 텍스트(자유) ---- */
+  text:{
+    label:"テキスト", ico:"✏️", group:"テキスト",
+    def:()=>({text:"本文テキストを入力してください。", textMode:"text", align:"left", color:"#333333", size:14, weight:"normal", bg:"#ffffff", pad:"12px 18px"}),
+    fields:[ F.rich("text","本文"), F.align(), F.num("size","文字サイズ",8,40),
+             F.sel("weight","太さ",[["normal","標準"],["bold","太字"]]), F.color("color","文字色"), F.color("bg","背景色") ],
+    render:(o)=>{
+      const p = `<p style="margin:0;font-size:${o.size}px;font-weight:${wt(o.weight)};color:${o.color};text-align:${o.align};line-height:1.8;">${renderRich(o,"text")}</p>`;
+      return row(p,{bg:o.bg,pad:o.pad});
+    }
+  },
+
+  /* ---- 버튼(CTA) ---- */
+  button:{
+    label:"ボタン(CTA)", ico:"🔘", group:"テキスト",
+    def:()=>({label:"詳しくはこちら", href:"", bg2:"#2f6df6", color:"#ffffff", radius:4, w:280, size:15, align:"center", boxBg:"#ffffff", pad:"14px 12px"}),
+    fields:[ F.text("label","ボタン文言"), F.url("href","リンク先URL"), F.color("bg2","ボタン色"),
+             F.color("color","文字色"), F.num("radius","角丸",0,40), F.num("w","ボタン幅",80,700),
+             F.num("size","文字サイズ",10,30), F.align(), F.color("boxBg","背景色") ],
+    render:(o)=>{
+      const a = `<a href="${esc(o.href)}" target="_blank" style="display:inline-block;background:${o.bg2};color:${o.color};text-decoration:none;font-size:${o.size}px;font-weight:bold;line-height:1;padding:14px 24px;border-radius:${o.radius}px;min-width:${o.w}px;text-align:center;">${esc(o.label)}</a>`;
+      const wrap = `<div style="text-align:${o.align};">${a}</div>`;
+      return row(wrap,{bg:o.boxBg,pad:o.pad});
+    }
+  },
+
+  /* ---- 구분선 ---- */
+  divider:{
+    label:"区切り線", ico:"➖", group:"レイアウト",
+    def:()=>({color:"#dddddd", thick:1, style:"solid", bg:"#ffffff", pad:"8px 16px"}),
+    fields:[ F.color("color","線の色"), F.num("thick","太さ",1,20),
+             F.sel("style","線種",[["solid","実線"],["dashed","破線"],["dotted","点線"]]),
+             F.color("bg","背景色") ],
+    render:(o)=>{
+      const hr = `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="border-top:${o.thick}px ${o.style} ${o.color};font-size:1px;line-height:1px;">&nbsp;</td></tr></table>`;
+      return row(hr,{bg:o.bg,pad:o.pad});
+    }
+  },
+
+  /* ---- 여백 ---- */
+  spacer:{
+    label:"余白(スペーサー)", ico:"↕️", group:"レイアウト",
+    def:()=>({h:24, bg:"#ffffff"}),
+    fields:[ F.num("h","高さ",1,300), F.color("bg","背景色") ],
+    render:(o)=>`<tr><td bgcolor="${o.bg}" style="background-color:${o.bg};height:${num(o.h,24)}px;font-size:1px;line-height:${num(o.h,24)}px;">&nbsp;</td></tr>`
+  },
+
+  /* ---- 공통 후터 ---- */
+  footer:{
+    label:"共通フッター", ico:"🔻", group:"共通",
+    def:()=>({img:"footer.png", alt:"フッター", href:"", bg:"#f4f4f4",
+              company:"株式会社サンプル", address:"〒000-0000 東京都○○区○○ 0-0-0",
+              unsubText:"配信停止はこちら", unsubUrl:"", note:"※本メールは送信専用です。", color:"#888888"}),
+    fields:[ F.text("img","画像ファイル"), F.text("alt","alt(代替テキスト)"), F.url("href","画像リンク"),
+             F.text("company","会社名"), F.text("address","住所"),
+             F.text("unsubText","配信停止 文言"), F.url("unsubUrl","配信停止URL"),
+             F.area("note","注記"), F.color("color","文字色"), F.color("bg","背景色") ],
+    render:(o,c)=>{
+      let parts = [];
+      if(o.img){
+        const img = imgTag(o.img,o.alt,c.width,c.width);
+        parts.push(o.href?link(o.href,img):img);
+      }
+      const info = [];
+      if(o.company) info.push(`<strong style="color:${o.color};">${esc(o.company)}</strong>`);
+      if(o.address) info.push(esc(o.address));
+      if(o.note)    info.push(nl2br(o.note));
+      let unsub = o.unsubUrl
+        ? `<a href="${esc(o.unsubUrl)}" target="_blank" style="color:${o.color};text-decoration:underline;">${esc(o.unsubText)}</a>`
+        : (o.unsubText?esc(o.unsubText):"");
+      if(unsub) info.push(unsub);
+      const txt = `<p style="margin:0;font-size:11px;color:${o.color};text-align:center;line-height:1.9;padding:16px 14px;">${info.join("<br>")}</p>`;
+      parts.push(txt);
+      return row(parts.join(""),{bg:o.bg,pad:"0"});
+    }
+  }
+};
+
+/* =========================================================================
+   렌더 헬퍼 (출력 HTML 조각)
+   ========================================================================= */
+function newProduct(n){
+  const nn = String(n).padStart(2,"0");
+  return { img:`item${nn}.png`, alt:`商品${n}`, href:"", name:`商品名${n}`, price:"¥0,000", comment:"商品コメントを入力" };
+}
+function imgTag(src,alt,w,maxw){
+  return `<img src="${esc(src)}" alt="${esc(alt)}" width="${w}" style="display:block;width:100%;max-width:${maxw}px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />`;
+}
+function link(href,inner){ return `<a href="${esc(href)}" target="_blank" style="text-decoration:none;">${inner}</a>`; }
+function nl2br(s){ return esc(s).replace(/\n/g,"<br>"); }
+/* 부분서식(rich): 메일 안전 태그만 허용하고 나머지는 이스케이프, 개행→<br> */
+function richHtml(raw){
+  let s=String(raw==null?"":raw);
+  // 1) 전체 이스케이프 → 2) 개행 <br> → 3) 허용 태그만 이스케이프 해제
+  s=s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  s=s.replace(/\n/g,"<br>");
+  s=s
+    .replace(/&lt;(\/?)(strong|b|em|i|u|s)&gt;/gi,"<$1$2>")
+    .replace(/&lt;br\s*\/?&gt;/gi,"<br>")
+    .replace(/&lt;span style=&quot;color:#([0-9a-fA-F]{3,6})&quot;&gt;/gi,'<span style="color:#$1">')
+    .replace(/&lt;\/span&gt;/gi,"</span>")
+    .replace(/&lt;a href=&quot;(.*?)&quot;((?: target=&quot;_blank&quot;)?)((?: style=&quot;[^&]*?&quot;)?)&gt;/gi,
+             function(m,h,tgt,st){ var href=h.replace(/&quot;/g,""); var sm=st.match(/style=&quot;(.*?)&quot;/i); var style=sm?(' style="'+sm[1].replace(/&quot;/g,"")+'"'):''; return '<a href="'+href+'"'+(tgt?' target="_blank"':'')+style+'>'; })
+    .replace(/&lt;\/a&gt;/gi,"</a>");
+  return s;
+}
+/* 텍스트/ HTML 모드 분기 렌더. mode="html"이면 코드 그대로(스크립트만 제거) */
+function renderRich(o,key){
+  const raw = o[key]==null?"":String(o[key]);
+  const mode = o[key+"Mode"]||"text";
+  if(mode==="html") return raw.replace(/<script[\s\S]*?<\/script>/gi,"");
+  return richHtml(raw);
+}
+/* ---------- 부분서식 툴바 헬퍼 ---------- */
+const RT_MAP = { strong:["<strong>","</strong>"], em:["<em>","</em>"], u:["<u>","</u>"], s:["<s>","</s>"] };
+function curSel(ta){
+  let s=ta.selectionStart, e=ta.selectionEnd;
+  if((s==null || s===e) && ta._sel){ s=ta._sel[0]; e=ta._sel[1]; }
+  if(s==null){ s=e=ta.value.length; }
+  return [s,e];
+}
+function setSelR(ta,s,e){ ta.focus(); try{ ta.setSelectionRange(s,e); ta._sel=[s,e]; }catch(_){} }
+function fireInput(ta){ ta.dispatchEvent(new Event("input",{bubbles:true})); }
+/* B/I/U/S: 이미 감싸져 있으면 해제, 아니면 감쌈(토글) */
+function toggleWrap(ta, open, close){
+  let [s,e]=curSel(ta); const v=ta.value;
+  if(v.slice(Math.max(0,s-open.length),s)===open && v.slice(e,e+close.length)===close){
+    ta.value = v.slice(0,s-open.length)+v.slice(s,e)+v.slice(e+close.length);
+    fireInput(ta); setSelR(ta, s-open.length, e-open.length);
+  } else {
+    const sel=v.slice(s,e)||"テキスト";
+    ta.value = v.slice(0,s)+open+sel+close+v.slice(e);
+    fireInput(ta); setSelR(ta, s+open.length, s+open.length+sel.length);
+  }
+}
+/* 색·링크: 선택영역을 감쌈(삽입) */
+function insertWrap(ta, open, close){
+  let [s,e]=curSel(ta); const v=ta.value;
+  const sel=v.slice(s,e)||"テキスト";
+  ta.value = v.slice(0,s)+open+sel+close+v.slice(e);
+  fireInput(ta); setSelR(ta, s+open.length, s+open.length+sel.length);
+}
+/* 현재 선택이 B/I/U/S로 감싸져 있으면 해당 버튼을 활성(파랑)표시 */
+function refreshActive(tools, ta){
+  const [s,e]=curSel(ta), v=ta.value;
+  tools.querySelectorAll("[data-fmt]").forEach(btn=>{
+    const m=RT_MAP[btn.dataset.fmt]; if(!m) return;
+    const on = e>s && v.slice(Math.max(0,s-m[0].length),s)===m[0] && v.slice(e,e+m[1].length)===m[1];
+    btn.classList.toggle("on", on);
+  });
+}
+function num(v,d){ v=parseInt(v,10); return isNaN(v)?d:v; }
+function chunk(arr,n){ const r=[]; for(let i=0;i<arr.length;i+=n) r.push(arr.slice(i,i+n)); return r; }
+/* padding "14px 12px" → 좌우합(px). 좌우값*2 */
+function padPairX(pad){
+  const p = String(pad).trim().split(/\s+/).map(x=>parseInt(x,10)||0);
+  if(p.length===1) return p[0]*2;
+  if(p.length===2) return p[1]*2;
+  if(p.length===4) return (p[1]+p[3]);
+  return (p[1]||0)*2;
+}
+function padX(){return 0;}
+/* 상품 셀 */
+function productCell(it,cellW,o){
+  const imgW = cellW - 0;
+  const img = imgTag(it.img,it.alt,imgW,imgW);
+  const imgBlock = it.href? link(it.href,img) : img;
+  return `<td width="${cellW}" valign="top" style="width:${cellW}px;">
+    ${imgBlock}
+    <p style="margin:8px 0 2px;font-size:14px;font-weight:bold;color:${o.nameColor};line-height:1.5;">${esc(it.name)}</p>
+    <p style="margin:0 0 4px;font-size:15px;font-weight:bold;color:${o.priceColor};line-height:1.4;">${esc(it.price)}</p>
+    <p style="margin:0;font-size:12px;color:${o.commentColor};line-height:1.6;">${nl2br(it.comment)}</p>
+  </td>`;
+}
+/* 메인 table 안 1행 = <tr><td(배경)>inner  ※Outlook용 bgcolor 속성 폴백 병기 */
+function row(inner,{bg="#ffffff",pad="0"}={}){
+  return `<tr><td bgcolor="${bg}" style="background-color:${bg};padding:${pad};">${inner}</td></tr>`;
+}
+
+/* ---------- 다중 이미지(가로 배치) 렌더 ---------- */
+/* 블록의 콘텐츠 폭 = table폭 - 좌우 padding */
+function contentWidthOf(b){ return state.width - padPairX((b.opts&&b.opts.pad)||"0"); }
+/* imgs[] → 1장이면 responsive 전폭, 2장 이상이면 폭 지정 가로 배치 */
+function imageRowRender(o,content){
+  const imgs = o.imgs||[];
+  if(imgs.length<=1){
+    const it = imgs[0]||{src:"",alt:"",href:"",w:content};
+    const img = imgTag(it.src,it.alt,content,content);
+    return it.href ? link(it.href,img) : img;
+  }
+  const gap = num(o.gap,0);
+  const cells = [];
+  imgs.forEach((it,i)=>{
+    const w = num(it.w,0);
+    const img = imgTag(it.src,it.alt,w,w);
+    const inner = it.href ? link(it.href,img) : img;
+    cells.push(`<td width="${w}" valign="top" style="width:${w}px;">${inner}</td>`);
+    if(i<imgs.length-1 && gap>0) cells.push(`<td width="${gap}" style="width:${gap}px;font-size:1px;line-height:1px;">&nbsp;</td>`);
+  });
+  const total = imgs.reduce((s,it)=>s+num(it.w,0),0) + gap*(imgs.length-1);
+  return `<table role="presentation" align="center" width="${total}" border="0" cellpadding="0" cellspacing="0" style="width:${total}px;"><tr>${cells.join("")}</tr></table>`;
+}
+/* 폭 합계 검증 상태 계산 */
+function imgWidthState(b){
+  const o=b.opts, content=contentWidthOf(b), gap=num(o.gap,0), n=(o.imgs||[]).length;
+  const total=(o.imgs||[]).reduce((s,it)=>s+num(it.w,0),0)+gap*(n-1);
+  if(total===content) return {cls:"ok",  msg:`✓ 幅ぴったりです（合計 ${total}px ／ 必要 ${content}px）`};
+  if(total<content)   return {cls:"warn",msg:`⚠ 幅の長さが不足しています（合計 ${total}px ／ 必要 ${content}px）。余白(gap)を追加するか、幅を調整してください。`};
+  return {cls:"over", msg:`⚠ 幅が超過しています（合計 ${total}px ／ 必要 ${content}px）。幅を狭めてください。`};
+}
+function imgWarnHtml(b){ const s=imgWidthState(b); return `<div class="warn-box ${s.cls}" data-imgwarn>${s.msg}</div>`; }
+function updateImgWarn(b,root){ const el=root.querySelector("[data-imgwarn]"); if(!el) return; const s=imgWidthState(b); el.className="warn-box "+s.cls; el.textContent=s.msg; }
+/* 이미지 추가(남은 폭을 자동 배분) */
+function addImage(b){
+  const o=b.opts, content=contentWidthOf(b), gap=num(o.gap,0);
+  if(o.imgs.length===1){
+    const avail=content-gap, each=Math.floor(avail/2);
+    o.imgs[0].w=each;
+    o.imgs.push({src:"image02.png",alt:"",href:"",w:avail-each});
+  }else{
+    const n=o.imgs.length+1;
+    const used=o.imgs.reduce((s,it)=>s+num(it.w,0),0)+gap*o.imgs.length;
+    let w=content-used;
+    if(w<40) w=Math.floor(content/n);
+    o.imgs.push({src:`image${String(n).padStart(2,"0")}.png`,alt:"",href:"",w});
+  }
+}
+/* 구버전(단일 img) opts → imgs[] 마이그레이션 */
+function migrateOpts(type,stored,merged){
+  const c=CATALOG[type];
+  if(c && c.multiImg && !Array.isArray(stored.imgs) && stored.img!==undefined){
+    merged.imgs=[{src:stored.img, alt:stored.alt||"", href:stored.href||"", w:stored.w||state.width}];
+  }
+  return merged;
+}
+
+/* =========================================================================
+   출력 문서 조립
+   ========================================================================= */
+function buildBody(){
+  const rows = state.blocks.map(b=>{
+    const c = CATALOG[b.type];
+    return c ? c.render(b.opts,{width:state.width}) : "";
+  }).join("\n");
+  return `<table role="presentation" align="center" width="${state.width}" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="width:${state.width}px;max-width:${state.width}px;margin:0 auto;background-color:#ffffff;">
+${rows}
+</table>`;
+}
+function buildDocument(){
+  const inner = buildBody();
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<title>メールマガジン</title>
+<style type="text/css">
+  body,table,td,p,a{ -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+  table,td{ mso-table-lspace:0pt; mso-table-rspace:0pt; }
+  img{ -ms-interpolation-mode:bicubic; border:0; height:auto; line-height:100%; outline:none; text-decoration:none; }
+  body{ margin:0; padding:0; width:100% !important; }
+  @media only screen and (max-width:${state.width}px){
+    .mail-wrap{ width:100% !important; max-width:100% !important; }
+    .mail-wrap img{ width:100% !important; height:auto !important; }
+  }
+</style>
+</head>
+<body bgcolor="${state.bg}" style="margin:0;padding:0;background-color:${state.bg};">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="${state.bg}" style="background-color:${state.bg};">
+<tr><td align="center" style="padding:0;">
+<!--[if mso]><table role="presentation" width="${state.width}" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+${inner.replace('role="presentation" align="center"','class="mail-wrap" role="presentation" align="center"')}
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+/* =========================================================================
+   UI 렌더링
+   ========================================================================= */
+function renderPalette(){
+  const groups = {};
+  Object.entries(CATALOG).forEach(([type,c])=>{
+    (groups[c.group] ||= []).push([type,c]);
+  });
+  const order = ["共通","画像","商品","テキスト","レイアウト"];
+  let html = "";
+  order.forEach(g=>{
+    if(!groups[g]) return;
+    html += `<div class="p-sec"><h4>${g}</h4>`;
+    groups[g].forEach(([type,c])=>{
+      html += `<button class="add-btn" data-add="${type}"><span class="ico">${c.ico}</span>${c.label}</button>`;
+    });
+    html += `</div>`;
+  });
+  $("#palette").innerHTML = html;
+  $$("#palette [data-add]").forEach(b=> b.onclick=()=>addBlock(b.dataset.add));
+}
+
+let openId = null;   // 펼쳐진 블록
+function renderBlocks(){
+  const wrap = $("#blocks");
+  if(!state.blocks.length){
+    wrap.innerHTML = `<div class="empty">左のパレットから要素を追加してください。<br><small>共通トップ → MV → 商品 → … → 共通フッター の順が基本です。</small></div>`;
+    return;
+  }
+  wrap.innerHTML = state.blocks.map((b,i)=>{
+    const c = CATALOG[b.type];
+    const open = b.id===openId;
+    return `<div class="block ${open?'open':''}" data-id="${b.id}">
+      <div class="b-head" data-toggle="${b.id}">
+        <span class="ico">${c.ico}</span>
+        <span class="b-title">${c.label}</span>
+        <span class="b-tag">#${i+1}</span>
+        <div class="spacer-fill"></div>
+        <div class="b-actions">
+          <button class="icobtn" data-act="up"   data-id="${b.id}" title="上へ">▲</button>
+          <button class="icobtn" data-act="down" data-id="${b.id}" title="下へ">▼</button>
+          <button class="icobtn" data-act="dup"  data-id="${b.id}" title="複製">⧉</button>
+          <button class="icobtn del" data-act="del" data-id="${b.id}" title="削除">✕</button>
+        </div>
+      </div>
+      <div class="b-body">${open?renderForm(b):""}</div>
+    </div>`;
+  }).join("");
+
+  // 헤더 토글
+  $$("#blocks [data-toggle]").forEach(h=> h.onclick=(e)=>{
+    if(e.target.closest("[data-act]")) return;
+    openId = (openId===h.dataset.toggle)? null : h.dataset.toggle;
+    renderBlocks();
+  });
+  // 액션
+  $$("#blocks [data-act]").forEach(btn=> btn.onclick=(e)=>{
+    e.stopPropagation();
+    blockAction(btn.dataset.act, btn.dataset.id);
+  });
+  // 폼 이벤트 바인딩(펼쳐진 블록만)
+  const b = state.blocks.find(x=>x.id===openId);
+  if(b) bindForm(b);
+}
+
+/* ---------- 자동 폼 생성 ---------- */
+function renderForm(b){
+  const c = CATALOG[b.type];
+  if(b.type==="products") return renderProductForm(b);
+  if(c.multiImg) return renderImageForm(b);
+  return `<div class="grid2">${c.fields.map(f=>fieldHtml(b,f)).join("")}</div>`;
+}
+function fieldHtml(b,f){
+  if(f.type==="rich") return richFieldHtml(b,f);
+  const v = b.opts[f.key];
+  const full = (f.type==="area") ? ' style="grid-column:1/-1"' : "";
+  let ctrl="";
+  if(f.type==="text"||f.type==="url"){
+    ctrl = `<input type="${f.type==='url'?'url':'text'}" data-k="${f.key}" value="${esc(v)}" placeholder="${esc(f.ph||"")}">`;
+  }else if(f.type==="area"){
+    ctrl = `<textarea data-k="${f.key}" placeholder="${esc(f.ph||"")}">${esc(v)}</textarea>`;
+  }else if(f.type==="num"){
+    ctrl = `<input type="number" data-k="${f.key}" value="${esc(v)}" min="${f.min}" max="${f.max}">`;
+  }else if(f.type==="color"){
+    ctrl = `<div class="color-row"><input type="color" data-k="${f.key}" value="${toHex(v)}"><input type="text" data-k="${f.key}" value="${esc(v)}" style="flex:1"></div>`;
+  }else if(f.type==="sel"){
+    ctrl = `<select data-k="${f.key}">${f.opts.map(([val,lab])=>`<option value="${val}" ${String(v)===String(val)?"selected":""}>${lab}</option>`).join("")}</select>`;
+  }else if(f.type==="align"){
+    ctrl = `<div class="seg" data-seg="${f.key}">
+      ${["left","center","right"].map(a=>`<button data-v="${a}" class="${v===a?'on':''}">${a==='left'?'左':a==='center'?'中':'右'}</button>`).join("")}</div>`;
+  }
+  return `<div class="fld"${full}><label>${f.label}</label>${ctrl}</div>`;
+}
+function toHex(v){ v=String(v||""); return /^#[0-9a-fA-F]{3,6}$/.test(v)? v : "#000000"; }
+
+/* rich 필드: 입력모드 토글(テキスト/HTML) + 부분서식 툴바 + textarea */
+const RT_HINT = { text:"選択した文字を上のボタンで書式設定（太字/斜体/下線/取消線/色/リンク）。",
+                  html:"HTMLコード：入力した内容がそのまま反映されます（自己責任）。" };
+function richFieldHtml(b,f){
+  const key=f.key, v=b.opts[key], mode=b.opts[key+"Mode"]||"text";
+  return `<div class="fld" style="grid-column:1/-1">
+    <label>${f.label}</label>
+    <div class="rt-head">
+      <div class="seg rt-mode" data-mode="${key}">
+        <button type="button" data-v="text" class="${mode==='text'?'on':''}">テキスト</button>
+        <button type="button" data-v="html" class="${mode==='html'?'on':''}">HTML</button>
+      </div>
+      <div class="rt-tools" data-for="${key}">
+        <button type="button" class="rt-b" data-fmt="strong" title="太字（strong）"><b>B</b></button>
+        <button type="button" class="rt-b" data-fmt="em" title="斜体（em）"><i>I</i></button>
+        <button type="button" class="rt-b" data-fmt="u" title="下線（u）"><span style="text-decoration:underline">U</span></button>
+        <button type="button" class="rt-b" data-fmt="s" title="取消線（s）"><s>S</s></button>
+        <input type="color" class="rt-color" data-fmt="color" value="#e5484d" title="文字色（先に文字を選択）">
+        <button type="button" class="rt-b" data-fmt="link" title="リンク（先に文字を選択）">🔗</button>
+      </div>
+    </div>
+    <textarea data-k="${key}" data-rich="1" placeholder="${esc(f.ph||"")}">${esc(v)}</textarea>
+    <div class="hint" data-richhint="${key}">${RT_HINT[mode]||RT_HINT.text}</div>
+  </div>`;
+}
+
+/* ---------- 상품 커스텀 폼 ---------- */
+function renderProductForm(b){
+  const o = b.opts;
+  const cols = `<div class="grid2">
+    <div class="fld"><label>カラム数(列)</label>
+      <div class="seg" data-pcols>
+        ${[2,3].map(n=>`<button data-v="${n}" class="${o.cols===n?'on':''}">${n}カラム</button>`).join("")}
+      </div>
+    </div>
+    <div class="fld"><label>列間の余白(px)</label><input type="number" data-po="gap" value="${o.gap}" min="0" max="60"></div>
+    <div class="fld"><label>商品名 色</label><div class="color-row"><input type="color" data-po="nameColor" value="${toHex(o.nameColor)}"><input type="text" data-po="nameColor" value="${esc(o.nameColor)}" style="flex:1"></div></div>
+    <div class="fld"><label>価格 色</label><div class="color-row"><input type="color" data-po="priceColor" value="${toHex(o.priceColor)}"><input type="text" data-po="priceColor" value="${esc(o.priceColor)}" style="flex:1"></div></div>
+    <div class="fld"><label>コメント 色</label><div class="color-row"><input type="color" data-po="commentColor" value="${toHex(o.commentColor)}"><input type="text" data-po="commentColor" value="${esc(o.commentColor)}" style="flex:1"></div></div>
+    <div class="fld"><label>ブロック背景</label><div class="color-row"><input type="color" data-po="bg" value="${toHex(o.bg)}"><input type="text" data-po="bg" value="${esc(o.bg)}" style="flex:1"></div></div>
+  </div>`;
+
+  const items = o.items.map((it,idx)=>`
+    <div class="prod-item">
+      <div class="pi-head"><strong>商品 ${idx+1}</strong>
+        <div class="b-actions">
+          <button class="icobtn" data-pi="pup"  data-idx="${idx}" title="上へ">▲</button>
+          <button class="icobtn" data-pi="pdown" data-idx="${idx}" title="下へ">▼</button>
+          <button class="icobtn del" data-pi="pdel" data-idx="${idx}" title="削除">✕</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="fld"><label>画像ファイル</label><input type="text" data-pk="img" data-idx="${idx}" value="${esc(it.img)}"></div>
+        <div class="fld"><label>alt(代替テキスト)</label><input type="text" data-pk="alt" data-idx="${idx}" value="${esc(it.alt)}"></div>
+        <div class="fld" style="grid-column:1/-1"><label>リンク先URL</label><input type="url" data-pk="href" data-idx="${idx}" value="${esc(it.href)}" placeholder="https://…"></div>
+        <div class="fld"><label>商品名</label><input type="text" data-pk="name" data-idx="${idx}" value="${esc(it.name)}"></div>
+        <div class="fld"><label>価格</label><input type="text" data-pk="price" data-idx="${idx}" value="${esc(it.price)}"></div>
+        <div class="fld" style="grid-column:1/-1"><label>コメント</label><textarea data-pk="comment" data-idx="${idx}">${esc(it.comment)}</textarea></div>
+      </div>
+    </div>`).join("");
+
+  return cols + items + `<button class="add-prod" data-padd>＋ 商品を追加</button>`;
+}
+
+/* ---------- 이미지(다중) 커스텀 폼 ---------- */
+function renderImageForm(b){
+  const o=b.opts, multi=(o.imgs||[]).length>1;
+  const top=`<div class="grid2">
+    <div class="fld"><label>背景色</label><div class="color-row"><input type="color" data-io="bg" value="${toHex(o.bg)}"><input type="text" data-io="bg" value="${esc(o.bg)}" style="flex:1"></div></div>
+    <div class="fld"><label>画像どうしの隙間 gap(px)</label><input type="number" data-io="gap" value="${num(o.gap,0)}" min="0" max="200"></div>
+  </div>`;
+  const items=(o.imgs||[]).map((it,idx)=>`
+    <div class="prod-item">
+      <div class="pi-head"><strong>画像 ${idx+1}</strong>
+        <div class="b-actions">
+          <button class="icobtn" data-ki="iup"   data-idx="${idx}" title="前へ（左）">▲</button>
+          <button class="icobtn" data-ki="idown" data-idx="${idx}" title="後ろへ（右）">▼</button>
+          <button class="icobtn del" data-ki="idel" data-idx="${idx}" title="削除">✕</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="fld"><label>画像ファイル</label><input type="text" data-ik="src" data-idx="${idx}" value="${esc(it.src)}"></div>
+        <div class="fld"><label>alt(代替テキスト)</label><input type="text" data-ik="alt" data-idx="${idx}" value="${esc(it.alt)}"></div>
+        <div class="fld" style="grid-column:1/-1"><label>リンク先URL</label><input type="url" data-ik="href" data-idx="${idx}" value="${esc(it.href)}" placeholder="https://…"></div>
+        ${multi?`<div class="fld"><label>幅 width(px)</label><input type="number" data-iw data-idx="${idx}" value="${num(it.w,0)}" min="1" max="900"></div>`:""}
+      </div>
+    </div>`).join("");
+  const foot = multi ? imgWarnHtml(b)
+    : `<div class="hint" style="margin:2px 0 9px">画像は横幅いっぱい（レスポンシブ）で表示されます。「画像を追加」すると横並びに配置でき、各画像の幅を指定します。</div>`;
+  return top + items + foot + `<button class="add-prod" data-iadd>＋ 画像を追加</button>`;
+}
+function bindImageForm(b,root){
+  // 블록옵션(배경/gap)
+  $$("[data-io]",root).forEach(el=> el.addEventListener("input",()=>{
+    b.opts[el.dataset.io]=el.value;
+    $$(`[data-io="${el.dataset.io}"]`,root).forEach(s=>{ if(s!==el) s.value=el.value; });
+    if(el.dataset.io==="gap") updateImgWarn(b,root);
+    commit(false);
+  }));
+  // 이미지 필드(src/alt/href)
+  $$("[data-ik]",root).forEach(el=> el.addEventListener("input",()=>{
+    b.opts.imgs[+el.dataset.idx][el.dataset.ik]=el.value; commit(false);
+  }));
+  // 폭(width)
+  $$("[data-iw]",root).forEach(el=> el.addEventListener("input",()=>{
+    b.opts.imgs[+el.dataset.idx].w=num(el.value,0); updateImgWarn(b,root); commit(false);
+  }));
+  // 이미지 추가
+  const iadd=root.querySelector("[data-iadd]");
+  if(iadd) iadd.onclick=()=>{ addImage(b); reopen(b.id); };
+  // 이미지 이동/삭제
+  $$("[data-ki]",root).forEach(btn=> btn.onclick=()=>{
+    const i=+btn.dataset.idx, arr=b.opts.imgs, act=btn.dataset.ki;
+    if(act==="idel"){ if(arr.length>1) arr.splice(i,1); }
+    else if(act==="iup" && i>0){ [arr[i-1],arr[i]]=[arr[i],arr[i-1]]; }
+    else if(act==="idown" && i<arr.length-1){ [arr[i+1],arr[i]]=[arr[i],arr[i+1]]; }
+    reopen(b.id);
+  });
+}
+
+/* ---------- 폼 → state 바인딩 ---------- */
+function bindForm(b){
+  const root = $(`.block[data-id="${b.id}"] .b-body`);
+  if(!root) return;
+
+  // 일반 필드(text/url/num/color-text/textarea/select)
+  $$("[data-k]",root).forEach(el=>{
+    const ev = (el.tagName==="SELECT"||el.type==="color") ? "input" : "input";
+    el.addEventListener("input",()=>{
+      let val = el.value;
+      if(el.type==="number") val = el.value;
+      b.opts[el.dataset.k] = val;
+      // color 짝(피커↔텍스트) 동기화
+      if(el.dataset.k){
+        $$(`[data-k="${el.dataset.k}"]`,root).forEach(sib=>{ if(sib!==el) sib.value = val; });
+      }
+      commit(false);
+    });
+  });
+  // align 세그먼트
+  $$("[data-seg]",root).forEach(seg=>{
+    seg.querySelectorAll("button").forEach(btn=> btn.onclick=()=>{
+      b.opts[seg.dataset.seg]=btn.dataset.v;
+      seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+      btn.classList.add("on");
+      commit(false);
+    });
+  });
+
+  // rich: 입력모드 토글(テキスト/HTML)
+  $$(".rt-mode",root).forEach(seg=>{
+    const key=seg.dataset.mode;
+    seg.querySelectorAll("button").forEach(btn=> btn.onclick=()=>{
+      b.opts[key+"Mode"]=btn.dataset.v;
+      seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+      btn.classList.add("on");
+      const hint=root.querySelector(`[data-richhint="${key}"]`);
+      if(hint) hint.textContent = RT_HINT[btn.dataset.v]||RT_HINT.text;
+      commit(false);
+    });
+  });
+  // rich: 부분서식 툴바
+  $$(".rt-tools",root).forEach(tools=>{
+    const key=tools.dataset.for;
+    const ta=root.querySelector(`textarea[data-k="${key}"]`);
+    if(!ta) return;
+    const hintEl=root.querySelector(`[data-richhint="${key}"]`);
+    const flashHint=(msg)=>{ if(!hintEl) return; const cur=b.opts[key+"Mode"]||"text"; hintEl.textContent=msg; setTimeout(()=>{ hintEl.textContent=RT_HINT[cur]||RT_HINT.text; },1500); };
+    // 선택 추적 + 활성표시
+    const track=()=>{ ta._sel=[ta.selectionStart, ta.selectionEnd]; refreshActive(tools,ta); };
+    ["keyup","mouseup","select","focus","input"].forEach(ev=>ta.addEventListener(ev,track));
+    tools.querySelectorAll("[data-fmt]").forEach(btn=>{
+      const fmt=btn.dataset.fmt;
+      if(fmt==="color"){
+        // 색: 선택영역이 있을 때만 적용(빈 곳 클릭 오작동 방지)
+        btn.addEventListener("input",()=>{
+          const [s,e]=curSel(ta);
+          if(e<=s){ flashHint("色をつける文字を選択してください"); return; }
+          insertWrap(ta, `<span style="color:${btn.value}">`, "</span>");
+          refreshActive(tools,ta);
+        });
+      }else{
+        btn.addEventListener("mousedown", e=>e.preventDefault());  // textarea 선택 유지
+        btn.addEventListener("click",()=>{
+          if(RT_MAP[fmt]){ toggleWrap(ta, RT_MAP[fmt][0], RT_MAP[fmt][1]); refreshActive(tools,ta); }
+          else if(fmt==="link"){
+            const [s,e]=curSel(ta);
+            if(e<=s){ flashHint("リンクにする文字を選択してください"); return; }
+            let url=prompt("リンク先URL","https://");
+            if(url){ url=url.replace(/"/g,""); insertWrap(ta, `<a href="${url}" target="_blank" style="color:#2f6df6;text-decoration:underline;">`, "</a>"); }
+          }
+        });
+      }
+    });
+    refreshActive(tools,ta);
+  });
+
+  if(b.type==="products") bindProductForm(b,root);
+  if(CATALOG[b.type].multiImg) bindImageForm(b,root);
+}
+function bindProductForm(b,root){
+  // 컬럼수
+  root.querySelectorAll("[data-pcols] button").forEach(btn=> btn.onclick=()=>{
+    b.opts.cols = parseInt(btn.dataset.v,10);
+    reopen(b.id);
+  });
+  // 블록 옵션(po)
+  $$("[data-po]",root).forEach(el=> el.addEventListener("input",()=>{
+    b.opts[el.dataset.po] = el.type==="number"? el.value : el.value;
+    $$(`[data-po="${el.dataset.po}"]`,root).forEach(sib=>{ if(sib!==el) sib.value=el.value; });
+    commit(false);
+  }));
+  // 상품 필드(pk)
+  $$("[data-pk]",root).forEach(el=> el.addEventListener("input",()=>{
+    const i = +el.dataset.idx; b.opts.items[i][el.dataset.pk]=el.value; commit(false);
+  }));
+  // 상품 추가/삭제/이동
+  const padd = root.querySelector("[data-padd]");
+  if(padd) padd.onclick=()=>{ b.opts.items.push(newProduct(b.opts.items.length+1)); reopen(b.id); };
+  $$("[data-pi]",root).forEach(btn=> btn.onclick=()=>{
+    const i=+btn.dataset.idx, arr=b.opts.items, act=btn.dataset.pi;
+    if(act==="pdel"){ if(arr.length>1) arr.splice(i,1); }
+    else if(act==="pup" && i>0){ [arr[i-1],arr[i]]=[arr[i],arr[i-1]]; }
+    else if(act==="pdown" && i<arr.length-1){ [arr[i+1],arr[i]]=[arr[i],arr[i+1]]; }
+    reopen(b.id);
+  });
+}
+function reopen(id){ openId=id; renderBlocks(); commit(true); }
+
+/* =========================================================================
+   블록 조작
+   ========================================================================= */
+function addBlock(type){
+  const c = CATALOG[type];
+  const b = { id:uid(), type, opts:structuredClone(c.def()) };
+  // 후터 앞에 삽입하는 정도의 편의: footer가 있으면 그 앞에
+  const fi = state.blocks.findIndex(x=>x.type==="footer");
+  if(type!=="footer" && type!=="header" && fi>=0) state.blocks.splice(fi,0,b);
+  else state.blocks.push(b);
+  openId = b.id;
+  renderBlocks(); commit(true);
+  // 방금 추가한 카드로 스크롤
+  const el = $(`.block[data-id="${b.id}"]`); if(el) el.scrollIntoView({behavior:"smooth",block:"center"});
+}
+function blockAction(act,id){
+  const i = state.blocks.findIndex(b=>b.id===id);
+  if(i<0) return;
+  if(act==="del"){ state.blocks.splice(i,1); if(openId===id) openId=null; }
+  else if(act==="up" && i>0){ [state.blocks[i-1],state.blocks[i]]=[state.blocks[i],state.blocks[i-1]]; }
+  else if(act==="down" && i<state.blocks.length-1){ [state.blocks[i+1],state.blocks[i]]=[state.blocks[i],state.blocks[i+1]]; }
+  else if(act==="dup"){ const nb=structuredClone(state.blocks[i]); nb.id=uid(); state.blocks.splice(i+1,0,nb); openId=nb.id; }
+  renderBlocks(); commit(true);
+}
+
+/* =========================================================================
+   커밋(프리뷰 갱신 + 저장)
+   ========================================================================= */
+let pvTimer=null;
+function commit(immediate){
+  persist();
+  if(immediate){ updatePreview(); }
+  else { clearTimeout(pvTimer); pvTimer=setTimeout(updatePreview,180); }
+}
+function updatePreview(){
+  const doc = buildDocument();
+  const iframe = $("#pv");
+  iframe.srcdoc = doc;
+  // 높이 자동 맞춤
+  iframe.onload = ()=>{
+    try{
+      const h = iframe.contentDocument.body.scrollHeight;
+      iframe.style.height = Math.max(h,300)+"px";
+    }catch(_){ iframe.style.height="800px"; }
+  };
+  // SP/PC 폭
+  $("#pvFrame").style.maxWidth = device==="sp" ? "375px" : (state.width+20)+"px";
+}
+
+/* ---------- 영속화 ---------- */
+function persist(){ try{ localStorage.setItem(STORE, JSON.stringify(state)); }catch(_){} }
+function restore(){
+  try{
+    const raw = localStorage.getItem(STORE); if(!raw) return false;
+    const s = JSON.parse(raw);
+    if(!s || !Array.isArray(s.blocks)) return false;
+    state.width = s.width||750; state.bg = s.bg||"#f4f4f4";
+    state.blocks = s.blocks.filter(b=>b&&CATALOG[b.type]).map(b=>{
+      const merged={...structuredClone(CATALOG[b.type].def()), ...(b.opts||{})};
+      return { id:b.id||uid(), type:b.type, opts:migrateOpts(b.type, b.opts||{}, merged) };
+    });
+    return true;
+  }catch(_){ return false; }
+}
+
+/* =========================================================================
+   툴바 / 부팅
+   ========================================================================= */
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
+function download(name,text){
+  const blob=new Blob([text],{type:"text/html;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function seedDefault(){
+  ["header","date","mv","products","banner","bannertext","divider","spacer","footer"].forEach(t=>{
+    state.blocks.push({id:uid(),type:t,opts:structuredClone(CATALOG[t].def())});
+  });
+}
+
+window.addEventListener("DOMContentLoaded",()=>{
+  renderPalette();
+  if(!restore()) seedDefault();
+  $("#tblWidth").value = state.width;
+  $("#bgColor").value  = /^#/.test(state.bg)? state.bg : "#f4f4f4";
+  renderBlocks(); updatePreview();
+
+  $("#tblWidth").addEventListener("input",e=>{ state.width=num(e.target.value,750); commit(false); });
+  $("#bgColor").addEventListener("input",e=>{ state.bg=e.target.value; commit(false); });
+
+  $("#btnDownload").onclick = ()=>{ download("mailmagazine.html", buildDocument()); toast("HTMLをダウンロードしました"); };
+  $("#btnCopy").onclick = async ()=>{
+    try{ await navigator.clipboard.writeText(buildDocument()); toast("HTMLをコピーしました"); }
+    catch(_){ toast("コピー失敗(手動で選択してください)"); }
+  };
+  $("#btnClear").onclick = ()=>{ if(confirm("すべての要素を削除しますか？")){ state.blocks=[]; openId=null; renderBlocks(); commit(true);} };
+  $("#btnJsonSave").onclick = ()=>{ download("mailmagazine-design.json", JSON.stringify(state,null,2)); toast("設計JSONを保存しました"); };
+  $("#btnJsonLoad").onclick = ()=> $("#fileJson").click();
+  $("#fileJson").onchange = (e)=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{ try{
+      const s=JSON.parse(r.result);
+      if(!s||!Array.isArray(s.blocks)) throw 0;
+      state.width=s.width||750; state.bg=s.bg||"#f4f4f4";
+      state.blocks=s.blocks.filter(b=>b&&CATALOG[b.type]).map(b=>{const merged={...structuredClone(CATALOG[b.type].def()),...(b.opts||{})};return {id:b.id||uid(),type:b.type,opts:migrateOpts(b.type,b.opts||{},merged)};});
+      openId=null; $("#tblWidth").value=state.width; $("#bgColor").value=/^#/.test(state.bg)?state.bg:"#f4f4f4";
+      renderBlocks(); commit(true); toast("設計を読み込みました");
+    }catch(_){ toast("JSONの読込に失敗しました"); } };
+    r.readAsText(f); e.target.value="";
+  };
+  // PC/SP
+  $$("#devSeg button").forEach(btn=> btn.onclick=()=>{
+    device=btn.dataset.dev;
+    $$("#devSeg button").forEach(x=>x.classList.toggle("on",x===btn));
+    updatePreview();
+  });
+});
+</script>
+</body>
+</html>

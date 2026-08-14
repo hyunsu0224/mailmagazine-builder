@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# node (将来 依存を足す場合)
+node_modules/
+
+# ローカル出力物（ビルダーからのダウンロード）
+mailmagazine.html
+mailmagazine-design.json
