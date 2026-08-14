@@ -98,6 +98,10 @@
   .rt-b.on{background:var(--accent); color:#fff}
   .rt-color{width:27px; height:27px; border:1px solid var(--line); border-radius:5px; padding:1px; background:#fff; cursor:pointer; flex:none}
   .rt-mode button{padding:5px 11px}
+  .sns-row{display:flex; align-items:center; gap:8px; margin-bottom:6px}
+  .sns-chk{display:inline-flex; align-items:center; gap:6px; width:110px; flex:none; font-size:12px; cursor:pointer; user-select:none}
+  .sns-chk input{width:15px; height:15px; cursor:pointer}
+  .sns-row input[type=url]{flex:1; border:1px solid var(--line); border-radius:7px; padding:6px 9px; font-size:12px}
   .warn-box{border-radius:7px; padding:8px 10px; font-size:11.5px; margin:2px 0 9px; line-height:1.55; font-weight:600}
   .warn-box.ok{background:#e7f7ee; color:#137a43; border:1px solid #b6e4c9}
   .warn-box.warn{background:#fff6e5; color:#9a6700; border:1px solid #ffdf9e}
@@ -349,16 +353,29 @@ const CATALOG = {
     label:"共通フッター", ico:"🔻", group:"共通",
     def:()=>({img:"sample/footer.png", alt:"フッター", href:"", bg:"#f4f4f4",
               company:"株式会社サンプル", address:"〒000-0000 東京都○○区○○ 0-0-0",
-              unsubText:"配信停止はこちら", unsubUrl:"", note:"※本メールは送信専用です。", color:"#888888"}),
+              unsubText:"配信停止はこちら", unsubUrl:"", note:"※本メールは送信専用です。", color:"#888888",
+              socialAlign:"center", iconSize:32, socials:defSocials()}),
     fields:[ F.text("img","画像ファイル"), F.text("alt","alt(代替テキスト)"), F.url("href","画像リンク"),
              F.text("company","会社名"), F.text("address","住所"),
              F.text("unsubText","配信停止 文言"), F.url("unsubUrl","配信停止URL"),
-             F.area("note","注記"), F.color("color","文字色"), F.color("bg","背景色") ],
+             F.area("note","注記"), F.color("color","文字色"), F.color("bg","背景色"),
+             F.sel("socialAlign","SNSアイコン配置",[["center","中央"],["left","左"],["right","右"]]),
+             F.num("iconSize","SNSアイコンサイズ",16,80) ],
     render:(o,c)=>{
       let parts = [];
       if(o.img){
         const img = imgTag(o.img,o.alt,c.width,c.width);
         parts.push(o.href?link(o.href,img):img);
+      }
+      // SNS 아이콘(체크된 것만, 지정 정렬로 가로 나열)
+      const sz=num(o.iconSize,32);
+      const cells=(o.socials||[]).filter(s=>s&&s.on).map(s=>{
+        const im=`<img src="sample/sns_${s.key}.png" alt="${esc(s.label)}" width="${sz}" height="${sz}" style="display:block;border:0;outline:none;text-decoration:none;" />`;
+        const a=s.url?`<a href="${esc(s.url)}" target="_blank" style="text-decoration:none;">${im}</a>`:im;
+        return `<td style="padding:0 6px;">${a}</td>`;
+      }).join("");
+      if(cells){
+        parts.push(`<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td align="${o.socialAlign||'center'}" style="padding:18px 0 2px;"><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table></td></tr></table>`);
       }
       const info = [];
       if(o.company) info.push(`<strong style="color:${o.color};">${esc(o.company)}</strong>`);
@@ -381,6 +398,16 @@ const CATALOG = {
 function newProduct(n){
   const s = ((n-1)%4)+1;   // 샘플 item1~4 순환
   return { img:`sample/item${s}.png`, alt:`商品${n}`, href:"", name:`商品名${n}`, price:"¥0,000", comment:"商品コメントを入力" };
+}
+/* 후터 SNS 아이콘 기본 목록(전부 OFF) */
+function defSocials(){
+  return [
+    {key:"instagram", label:"Instagram",   on:false, url:""},
+    {key:"line",      label:"LINE",         on:false, url:""},
+    {key:"twitter",   label:"X / Twitter",  on:false, url:""},
+    {key:"facebook",  label:"Facebook",     on:false, url:""},
+    {key:"youtube",   label:"YouTube",      on:false, url:""},
+  ];
 }
 function imgTag(src,alt,w,maxw){
   return `<img src="${esc(src)}" alt="${esc(alt)}" width="${w}" style="display:block;width:100%;max-width:${maxw}px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />`;
@@ -671,7 +698,22 @@ function renderForm(b){
   const c = CATALOG[b.type];
   if(b.type==="products") return renderProductForm(b);
   if(c.multiImg) return renderImageForm(b);
-  return `<div class="grid2">${c.fields.map(f=>fieldHtml(b,f)).join("")}</div>`;
+  let base = `<div class="grid2">${c.fields.map(f=>fieldHtml(b,f)).join("")}</div>`;
+  if(b.type==="footer") base += renderFooterSocials(b);
+  return base;
+}
+/* 후터 SNS 아이콘 편집(체크박스 ON + URL) */
+function renderFooterSocials(b){
+  const list=(b.opts.socials||[]).map((s,i)=>`
+    <div class="sns-row">
+      <label class="sns-chk"><input type="checkbox" data-sns="on" data-idx="${i}" ${s.on?"checked":""}><span>${esc(s.label)}</span></label>
+      <input type="url" data-sns="url" data-idx="${i}" value="${esc(s.url)}" placeholder="https://…（リンク先URL）">
+    </div>`).join("");
+  return `<div class="fld" style="grid-column:1/-1;margin-top:6px">
+    <label>SNSアイコン（チェックで表示・URLでリンク／既定は中央）</label>
+    ${list}
+    <div class="hint">アイコン画像は sample/sns_*.png を使用。実運用では実アイコンのURLに差し替えてください。</div>
+  </div>`;
 }
 function fieldHtml(b,f){
   if(f.type==="rich") return richFieldHtml(b,f);
@@ -892,6 +934,19 @@ function bindForm(b){
     });
     refreshActive(tools,ta);
   });
+
+  // footer: SNS 아이콘(체크박스/URL)
+  if(b.type==="footer"){
+    $$("[data-sns]",root).forEach(el=>{
+      const ev = el.type==="checkbox" ? "change" : "input";
+      el.addEventListener(ev,()=>{
+        const i=+el.dataset.idx, k=el.dataset.sns;
+        if(!b.opts.socials[i]) return;
+        b.opts.socials[i][k] = (el.type==="checkbox") ? el.checked : el.value;
+        commit(false);
+      });
+    });
+  }
 
   if(b.type==="products") bindProductForm(b,root);
   if(CATALOG[b.type].multiImg) bindImageForm(b,root);
