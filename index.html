@@ -211,7 +211,7 @@ const CATALOG = {
   /* ---- 공통 탑 (다중 이미지 가능) ---- */
   header:{
     label:"共通トップ", ico:"🔝", group:"共通", multiImg:true,
-    def:()=>({imgs:[{src:"header.png",alt:"ヘッダー",href:"",w:750}], gap:20, bg:"#ffffff", pad:"0"}),
+    def:()=>({imgs:[{src:"sample/header.png",alt:"ヘッダー",href:"",w:750}], gap:20, bg:"#ffffff", pad:"0"}),
     render:(o,c)=>{ const content=c.width-padPairX(o.pad||"0"); return row(imageRowRender(o,content),{bg:o.bg,pad:o.pad||"0"}); }
   },
 
@@ -231,7 +231,7 @@ const CATALOG = {
   /* ---- 메인 비주얼 (다중 이미지 가능) ---- */
   mv:{
     label:"メインビジュアル(MV)", ico:"🖼", group:"画像", multiImg:true,
-    def:()=>({imgs:[{src:"main01.png",alt:"メインビジュアル",href:"",w:750}], gap:20, bg:"#ffffff", pad:"0"}),
+    def:()=>({imgs:[{src:"sample/mv.png",alt:"メインビジュアル",href:"",w:750}], gap:20, bg:"#ffffff", pad:"0"}),
     render:(o,c)=>{ const content=c.width-padPairX(o.pad||"0"); return row(imageRowRender(o,content),{bg:o.bg,pad:o.pad||"0"}); }
   },
 
@@ -271,7 +271,7 @@ const CATALOG = {
   /* ---- 배너 이미지 (다중 이미지 가능) ---- */
   banner:{
     label:"バナー画像", ico:"🏷", group:"画像", multiImg:true,
-    def:()=>({imgs:[{src:"banner01.png",alt:"バナー",href:"",w:726}], gap:20, bg:"#ffffff", pad:"10px 12px"}),
+    def:()=>({imgs:[{src:"sample/banner.png",alt:"バナー",href:"",w:726}], gap:20, bg:"#ffffff", pad:"10px 12px"}),
     render:(o,c)=>{ const content=c.width-padPairX(o.pad||"10px 12px"); return row(imageRowRender(o,content),{bg:o.bg,pad:o.pad}); }
   },
 
@@ -347,7 +347,7 @@ const CATALOG = {
   /* ---- 공통 후터 ---- */
   footer:{
     label:"共通フッター", ico:"🔻", group:"共通",
-    def:()=>({img:"footer.png", alt:"フッター", href:"", bg:"#f4f4f4",
+    def:()=>({img:"sample/footer.png", alt:"フッター", href:"", bg:"#f4f4f4",
               company:"株式会社サンプル", address:"〒000-0000 東京都○○区○○ 0-0-0",
               unsubText:"配信停止はこちら", unsubUrl:"", note:"※本メールは送信専用です。", color:"#888888"}),
     fields:[ F.text("img","画像ファイル"), F.text("alt","alt(代替テキスト)"), F.url("href","画像リンク"),
@@ -379,8 +379,8 @@ const CATALOG = {
    렌더 헬퍼 (출력 HTML 조각)
    ========================================================================= */
 function newProduct(n){
-  const nn = String(n).padStart(2,"0");
-  return { img:`item${nn}.png`, alt:`商品${n}`, href:"", name:`商品名${n}`, price:"¥0,000", comment:"商品コメントを入力" };
+  const s = ((n-1)%4)+1;   // 샘플 item1~4 순환
+  return { img:`sample/item${s}.png`, alt:`商品${n}`, href:"", name:`商品名${n}`, price:"¥0,000", comment:"商品コメントを入力" };
 }
 function imgTag(src,alt,w,maxw){
   return `<img src="${esc(src)}" alt="${esc(alt)}" width="${w}" style="display:block;width:100%;max-width:${maxw}px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />`;
@@ -396,10 +396,15 @@ function richHtml(raw){
   s=s
     .replace(/&lt;(\/?)(strong|b|em|i|u|s)&gt;/gi,"<$1$2>")
     .replace(/&lt;br\s*\/?&gt;/gi,"<br>")
-    .replace(/&lt;span style=&quot;color:#([0-9a-fA-F]{3,6})&quot;&gt;/gi,'<span style="color:#$1">')
-    .replace(/&lt;\/span&gt;/gi,"</span>")
-    .replace(/&lt;a href=&quot;(.*?)&quot;((?: target=&quot;_blank&quot;)?)((?: style=&quot;[^&]*?&quot;)?)&gt;/gi,
-             function(m,h,tgt,st){ var href=h.replace(/&quot;/g,""); var sm=st.match(/style=&quot;(.*?)&quot;/i); var style=sm?(' style="'+sm[1].replace(/&quot;/g,"")+'"'):''; return '<a href="'+href+'"'+(tgt?' target="_blank"':'')+style+'>'; })
+    // 文字色は style ではなく font color 属性で（HTMLメール向け）
+    .replace(/&lt;font color=&quot;(#[0-9a-fA-F]{3,6})&quot;&gt;/gi,'<font color="$1">')
+    .replace(/&lt;\/font&gt;/gi,"</font>")
+    // 旧データの span[style=color] は font color に変換（style を残さない）
+    .replace(/&lt;span style=&quot;color:(#[0-9a-fA-F]{3,6})&quot;&gt;/gi,'<font color="$1">')
+    .replace(/&lt;\/span&gt;/gi,"</font>")
+    // a は style を付けず href/target のみ（色は内側の font、下線は u タグ）
+    .replace(/&lt;a href=&quot;(.*?)&quot;((?: target=&quot;_blank&quot;)?)(?: style=&quot;[^&]*?&quot;)?&gt;/gi,
+             function(m,h,tgt){ var href=h.replace(/&quot;/g,""); return '<a href="'+href+'"'+(tgt?' target="_blank"':'')+'>'; })
     .replace(/&lt;\/a&gt;/gi,"</a>");
   return s;
 }
@@ -515,13 +520,13 @@ function addImage(b){
   if(o.imgs.length===1){
     const avail=content-gap, each=Math.floor(avail/2);
     o.imgs[0].w=each;
-    o.imgs.push({src:"image02.png",alt:"",href:"",w:avail-each});
+    o.imgs.push({src:"sample/image.png",alt:"",href:"",w:avail-each});
   }else{
     const n=o.imgs.length+1;
     const used=o.imgs.reduce((s,it)=>s+num(it.w,0),0)+gap*o.imgs.length;
     let w=content-used;
     if(w<40) w=Math.floor(content/n);
-    o.imgs.push({src:`image${String(n).padStart(2,"0")}.png`,alt:"",href:"",w});
+    o.imgs.push({src:"sample/image.png",alt:"",href:"",w});
   }
 }
 /* 구버전(단일 img) opts → imgs[] 마이그레이션 */
@@ -850,7 +855,7 @@ function bindForm(b){
         btn.addEventListener("input",()=>{
           const [s,e]=curSel(ta);
           if(e<=s){ flashHint("色をつける文字を選択してください"); return; }
-          insertWrap(ta, `<span style="color:${btn.value}">`, "</span>");
+          insertWrap(ta, `<font color="${btn.value}">`, "</font>");
           refreshActive(tools,ta);
         });
       }else{
@@ -861,7 +866,7 @@ function bindForm(b){
             const [s,e]=curSel(ta);
             if(e<=s){ flashHint("リンクにする文字を選択してください"); return; }
             let url=prompt("リンク先URL","https://");
-            if(url){ url=url.replace(/"/g,""); insertWrap(ta, `<a href="${url}" target="_blank" style="color:#2f6df6;text-decoration:underline;">`, "</a>"); }
+            if(url){ url=url.replace(/"/g,""); insertWrap(ta, `<a href="${url}" target="_blank"><font color="#2f6df6"><u>`, "</u></font></a>"); }
           }
         });
       }
